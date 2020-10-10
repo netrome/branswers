@@ -4,6 +4,8 @@
 use rust_bert::pipelines::question_answering::{QaInput, QuestionAnsweringModel};
 use rust_bert::pipelines::summarization::SummarizationModel;
 use rust_bert::pipelines::ner::NERModel;
+use rust_bert::pipelines::generation::LanguageGenerator;
+use rust_bert::pipelines::generation::GPT2Generator;
 
 use serde::Deserialize;
 use rocket_contrib::json::Json;
@@ -47,8 +49,8 @@ fn main() -> ResultBox<()>{
     // println!("asdfg: {:?}", question_answering("Amy is angry, but John is happy", "How does John feel?"));
     // println!("Summary: {:?}", summary(FUCKING_INPUT));
     // println!("Summary2: {:?}", summary(&conciousness));
-    named_entity_recognition( "My name is Amy. I live in Paris.");
-    rocket::ignite().mount("/", routes![hello, ner, summary_route, qa_route]).launch();
+    //named_entity_recognition( "My name is Amy. I live in Paris.");
+    rocket::ignite().mount("/", routes![hello, ner, summary_route, generate_route, qa_route]).launch();
     Ok(())
 }
 
@@ -65,11 +67,17 @@ fn summary(text: &str) -> ResultBox<Vec<String>> {
     Ok(summarization_model.summarize(&[text]))
 }
 
-fn  named_entity_recognition(input: &str) -> ResultBox<()> {
+fn  named_entity_recognition(input: &str) -> ResultBox<String> {
     let ner_model = NERModel::new(Default::default())?;
     let output = ner_model.predict(&[input]);
-    Ok(())
+    Ok(format!("{:?}", output))
 }   
+
+fn generation(text: &str) -> ResultBox<String>{
+    let model = GPT2Generator::new(Default::default())?;
+    let output = model.generate(Some(vec![text]), None);
+    Ok(format!("{:?}", output))
+}
 
 
 // API -------------------------------------------------
@@ -78,7 +86,7 @@ fn hello(name: String, age: u8) -> String {
     format!("Hello, {} year old named {}!", age, name)
 }
 
-#[get("/ner/<text>")]
+#[post("/ner", data="<text>")]
 fn ner(text: String) -> String {
     let output = named_entity_recognition(&text);
     format!("{:?}", output)
@@ -87,6 +95,12 @@ fn ner(text: String) -> String {
 #[post("/summary", data="<text>")]
 fn summary_route(text: String) -> String {
     let output = summary(&text);
+    format!("{:?}", output)
+}
+
+#[post("/gen", data="<text>")]
+fn generate_route(text: String) -> String {
+    let output = generation(&text);
     format!("{:?}", output)
 }
 
