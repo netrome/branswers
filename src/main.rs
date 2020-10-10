@@ -17,6 +17,11 @@ struct QAInput {
     context: String
 }
 
+#[derive(Deserialize)]
+struct TextInput {
+    text: String
+}
+
 //https://docs.rs/rust-bert/0.10.0/rust_bert/pipelines/index.html
 
                                                       
@@ -94,26 +99,26 @@ fn hello(name: String, age: u8) -> String {
 }
 
 #[post("/ner", data="<text>")]
-fn ner(text: String) -> String {
-    let output = named_entity_recognition(&text);
+fn ner(text: Json<TextInput>) -> String {
+    let output = named_entity_recognition(&text.text);
     format!("{:?}", output)
 }
 
 #[post("/summary", data="<text>")]
-fn summary_route(text: String) -> String {
-    let output = summary(&text);
+fn summary_route(text: Json<TextInput>) -> String {
+    let output = summary(&text.text);
     format!("{:?}", output)
 }
 
 #[post("/gen", data="<text>")]
-fn generate_route(text: String) -> String {
-    let output = generation(&text);
+fn generate_route(text: Json<TextInput>) -> String {
+    let output = generation(&text.text);
     format!("{:?}", output)
 }
 
 #[post("/sentiment", data="<text>")]
-fn sentiment_route(text: String) -> String {
-    let output = sentiment_analysis(&text);
+fn sentiment_route(text: Json<TextInput>) -> String {
+    let output = sentiment_analysis(&text.text);
     format!("{:?}", output)
 }
 
