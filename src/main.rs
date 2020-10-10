@@ -6,6 +6,7 @@ use rust_bert::pipelines::summarization::SummarizationModel;
 use rust_bert::pipelines::ner::NERModel;
 use rust_bert::pipelines::generation::LanguageGenerator;
 use rust_bert::pipelines::generation::GPT2Generator;
+use rust_bert::pipelines::sentiment::SentimentModel;
 
 use serde::Deserialize;
 use rocket_contrib::json::Json;
@@ -50,7 +51,7 @@ fn main() -> ResultBox<()>{
     // println!("Summary: {:?}", summary(FUCKING_INPUT));
     // println!("Summary2: {:?}", summary(&conciousness));
     //named_entity_recognition( "My name is Amy. I live in Paris.");
-    rocket::ignite().mount("/", routes![hello, ner, summary_route, generate_route, qa_route]).launch();
+    rocket::ignite().mount("/", routes![hello, ner, summary_route, generate_route, sentiment_route, qa_route]).launch();
     Ok(())
 }
 
@@ -73,7 +74,13 @@ fn  named_entity_recognition(input: &str) -> ResultBox<String> {
     Ok(format!("{:?}", output))
 }   
 
-fn generation(text: &str) -> ResultBox<String>{
+fn sentiment_analysis(input: &str) -> ResultBox<String> {
+    let sentiment_model = SentimentModel::new(Default::default())?;
+    let output = sentiment_model.predict(&[input]);
+    Ok(format!("{:?}", output))
+}
+
+fn generation(text: &str) -> ResultBox<String> {
     let model = GPT2Generator::new(Default::default())?;
     let output = model.generate(Some(vec![text]), None);
     Ok(format!("{:?}", output))
@@ -101,6 +108,12 @@ fn summary_route(text: String) -> String {
 #[post("/gen", data="<text>")]
 fn generate_route(text: String) -> String {
     let output = generation(&text);
+    format!("{:?}", output)
+}
+
+#[post("/sentiment", data="<text>")]
+fn sentiment_route(text: String) -> String {
+    let output = sentiment_analysis(&text);
     format!("{:?}", output)
 }
 
