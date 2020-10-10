@@ -7,6 +7,9 @@ use rust_bert::pipelines::ner::NERModel;
 use rust_bert::pipelines::generation::LanguageGenerator;
 use rust_bert::pipelines::generation::GPT2Generator;
 use rust_bert::pipelines::sentiment::SentimentModel;
+use rust_bert::pipelines::conversation::{ConversationManager, ConversationModel};
+use rust_bert::pipelines::zero_shot_classification::{ZeroShotClassificationModel};
+
 
 use serde::Deserialize;
 use rocket_contrib::json::Json;
@@ -15,6 +18,12 @@ use rocket_contrib::json::Json;
 struct QAInput {
     question: String,
     context: String
+}
+
+#[derive(Deserialize)]
+struct SQInput {
+    sentence: String,
+    labels: Vec<String>
 }
 
 #[derive(Deserialize)]
@@ -56,8 +65,8 @@ fn main() -> ResultBox<()>{
     // println!("Summary: {:?}", summary(FUCKING_INPUT));
     // println!("Summary2: {:?}", summary(&conciousness));
     //named_entity_recognition( "My name is Amy. I live in Paris.");
-    rocket::ignite().mount("/", routes![hello, ner, summary_route, generate_route, sentiment_route, qa_route]).launch();
-    Ok(())
+    rocket::ignite().mount("/", routes![hello, ner, summary_route, generate_route, sentiment_route, qa_route, dialogue_route]).launch();
+    Ok(()) // p12
 }
 
 fn question_answering(context: &str, question: &str) -> ResultBox<String> {
@@ -73,7 +82,7 @@ fn summary(text: &str) -> ResultBox<Vec<String>> {
     Ok(summarization_model.summarize(&[text]))
 }
 
-fn  named_entity_recognition(input: &str) -> ResultBox<String> {
+fn named_entity_recognition(input: &str) -> ResultBox<String> {
     let ner_model = NERModel::new(Default::default())?;
     let output = ner_model.predict(&[input]);
     Ok(format!("{:?}", output))
@@ -91,12 +100,47 @@ fn generation(text: &str) -> ResultBox<String> {
     Ok(format!("{:?}", output))
 }
 
+fn dialogue(text: &str) -> ResultBox<String> {
+    let conversation_model = ConversationModel::new(Default::default())?;
+    let mut conversation_manager = ConversationManager::new();
+    conversation_manager.create(text);
+    let output = conversation_model.generate_responses(&mut conversation_manager);
+    Ok(format!("{:?}", output))
+}
+
+fn sequence_classification<T: AsRef<str>>(input_sentence: &str, candidate_labels: &[T]) -> ResultBox<String> {
+    let inp: Vec<&str> = candidate_labels.iter().map(|s| s.as_ref()).collect();
+    let sequence_classification_model = ZeroShotClassificationModel::new(Default::default())?;
+    let output = sequence_classification_model.predict_multilabel(&[input_sentence],
+        &inp,
+        None,
+        128,
+    );
+    Ok(format!("{:?}", output))
+}
 
 // API -------------------------------------------------
 #[get("/hello/<name>/<age>")]
 fn hello(name: String, age: u8) -> String {
     format!("Hello, {} year old named {}!", age, name)
 }
+
+#[get("/dialogue/<text>")]
+fn dialogue_route(text: String) -> String {
+    let output = match dialogue(&text){
+        Ok(s) => s,
+        Err(_) => "Tjena Fredde!".to_owned()
+    };
+    let outoutput = dialogue(&output);
+    format!("{:?}", outoutput)
+}
+
+#[post("/sequence", data="<sq>")]
+fn sequence(sq: Json<SQInput>) -> String {
+    let output = sequence_classification(&sq.sentence, &sq.labels);
+    format!("{:?}", output)
+}
+
 
 #[post("/ner", data="<text>")]
 fn ner(text: Json<TextInput>) -> String {
