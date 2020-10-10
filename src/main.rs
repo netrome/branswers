@@ -1,5 +1,20 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+#[macro_use] extern crate rocket;
+
 use rust_bert::pipelines::question_answering::{QaInput, QuestionAnsweringModel};
 use rust_bert::pipelines::summarization::SummarizationModel;
+use rust_bert::pipelines::ner::NERModel;
+
+use serde::Deserialize;
+use rocket_contrib::json::Json;
+
+#[derive(Deserialize)]
+struct QAInput {
+    question: String,
+    context: String
+}
+
+//https://docs.rs/rust-bert/0.10.0/rust_bert/pipelines/index.html
 
                                                       
 static FUCKING_INPUT: &'static str = "In findings published Tuesday in Cornell University's arXiv by a team of scientists \
@@ -28,20 +43,21 @@ about exoplanets like K2-18b.";
 type ResultBox<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> ResultBox<()>{
-    let conciousness = std::fs::read_to_string("conciousness.txt").expect("Hello I am error!");
-    println!("asdfg: {:?}", question_answering("Amy is angry, but John is happy", "How does John feel?"));
-    println!("Summary: {:?}", summary(FUCKING_INPUT));
-    println!("Summary2: {:?}", summary(&conciousness));
+    // let conciousness = std::fs::read_to_string("conciousness.txt").expect("Hello I am error!");
+    // println!("asdfg: {:?}", question_answering("Amy is angry, but John is happy", "How does John feel?"));
+    // println!("Summary: {:?}", summary(FUCKING_INPUT));
+    // println!("Summary2: {:?}", summary(&conciousness));
+    named_entity_recognition( "My name is Amy. I live in Paris.");
+    rocket::ignite().mount("/", routes![hello, ner, summary_route, qa_route]).launch();
     Ok(())
 }
 
-fn question_answering(context: &str, question: &str) -> ResultBox<()> {
+fn question_answering(context: &str, question: &str) -> ResultBox<String> {
     let question = question.to_owned();
     let context = context.to_owned();
     let qa_model = QuestionAnsweringModel::new(Default::default())?;
     let answers = qa_model.predict(&vec![QaInput { question, context }], 1, 32);
-    println!("Answers: {:?}", answers);
-    Ok(())
+    Ok(format!("Answers: {:?}", answers))
 }
 
 fn summary(text: &str) -> ResultBox<Vec<String>> {
@@ -49,3 +65,33 @@ fn summary(text: &str) -> ResultBox<Vec<String>> {
     Ok(summarization_model.summarize(&[text]))
 }
 
+fn  named_entity_recognition(input: &str) -> ResultBox<()> {
+    let ner_model = NERModel::new(Default::default())?;
+    let output = ner_model.predict(&[input]);
+    Ok(())
+}   
+
+
+// API -------------------------------------------------
+#[get("/hello/<name>/<age>")]
+fn hello(name: String, age: u8) -> String {
+    format!("Hello, {} year old named {}!", age, name)
+}
+
+#[get("/ner/<text>")]
+fn ner(text: String) -> String {
+    let output = named_entity_recognition(&text);
+    format!("{:?}", output)
+}
+
+#[post("/summary", data="<text>")]
+fn summary_route(text: String) -> String {
+    let output = summary(&text);
+    format!("{:?}", output)
+}
+
+#[post("/qa", data="<input>")]
+fn qa_route(input: Json<QAInput>) -> String {
+    let output = question_answering(&input.context, &input.question);
+    format!("{:?}", output)
+}
